@@ -54,6 +54,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /auth/register:
+    post:
+      summary: User Registration
+      description: Register a new user with a name, email, password, and password confirmation.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - password_confirmation
+              properties:
+                name:
+                  type: string
+                  description: The display name of the user.
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: The password for the new account.
+                  example: SecurePassword123!
+                password_confirmation:
+                  type: string
+                  format: password
+                  description: The confirmation password, which must match the password field.
+                  example: SecurePassword123!
+      responses:
+        '201':
+          description: Successfully registered. Returns a JWT access token and the registered user's details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure (e.g., password mismatch).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '409':
+          description: Registration failed because the email address is already in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
 
 components:
   securitySchemes:
@@ -168,3 +224,88 @@ components:
               type: string
               description: Human-readable error message.
               example: Invalid email or password
+    RegisterResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing registration response data.
+          required:
+            - user
+            - token
+          properties:
+            user:
+              type: object
+              required:
+                - id
+                - name
+                - email
+                - created_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the registered user.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                name:
+                  type: string
+                  description: The name of the user.
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user was created.
+                  example: '2026-06-03T22:06:17Z'
+            token:
+              type: string
+              description: JWT access token to authenticate subsequent API requests.
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDAiLCJleHAiOjE3Mzk4OTQwMDB9.signature
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    ConflictErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing conflict error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: CONFLICT
+            message:
+              type: string
+              description: Human-readable error message.
+              example: Email is already registered
