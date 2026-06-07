@@ -50,6 +50,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingEmail:
+                  summary: Missing email
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email is a required field
+                invalidEmail:
+                  summary: Invalid email format
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email must be a valid email address
+                missingPassword:
+                  summary: Missing password
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password
+                          message: password is a required field
         '401':
           description: Authentication failed due to incorrect email or password.
           content:
@@ -108,6 +142,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingName:
+                  summary: Missing name
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name is a required field
+                missingEmail:
+                  summary: Missing email
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email is a required field
+                invalidEmail:
+                  summary: Invalid email format
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email must be a valid email address
+                missingPassword:
+                  summary: Missing password
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password
+                          message: password is a required field
+                missingPasswordConfirmation:
+                  summary: Missing password confirmation
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password_confirmation
+                          message: password_confirmation is a required field
+                passwordMismatch:
+                  summary: Password mismatch
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password_confirmation
+                          message: password confirmation must match password
         '409':
           description: Registration failed because the email address is already in use.
           content:
@@ -136,6 +237,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /direct-messages/{user_id}:
+    post:
+      operationId: sendDirectMessage
+      summary: Send a Direct Message
+      description: Send a direct message to another user. If a direct conversation between the users does not exist, a new one will be created.
+      tags:
+        - Messaging
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The unique identifier of the target user.
+          schema:
+            type: string
+            format: uuid
+            example: 123e4567-e89b-123d-a456-426614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  maxLength: 4000
+                  description: The message content to send (up to 4000 characters).
+                  example: Hello, how are you?
+      responses:
+        '201':
+          description: Message sent successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure (e.g., message exceeds 4000 characters).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingMessage:
+                  summary: Missing message
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: message
+                          message: message is a required field
+                messageExceedsLimit:
+                  summary: Message exceeds character limit
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: message
+                          message: message must be at most 4000 characters
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Recipient user not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+
 
 components:
   securitySchemes:
@@ -361,3 +543,83 @@ components:
           nullable: true
           description: Always null for successful responses.
           example: null
+    SendMessageResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the sent message details.
+          required:
+            - message
+          properties:
+            message:
+              type: object
+              required:
+                - id
+                - user_id
+                - message
+                - created_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the sent message.
+                  example: 876e5432-b89e-432d-c456-826614174000
+                user_id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the sender.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                message:
+                  type: string
+                  description: The content of the sent message.
+                  example: Hello, how are you?
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the message was sent.
+                  example: '2026-06-07T11:30:00Z'
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    NotFoundErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: NOT_FOUND
+            message:
+              type: string
+              description: Human-readable error message.
+              example: Target user not found
