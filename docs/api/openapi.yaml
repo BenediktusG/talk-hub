@@ -317,6 +317,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponse'
+  /groups:
+    post:
+      operationId: createGroup
+      summary: Create a Group
+      description: Create a new group conversation. The user must be authenticated.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - group_name
+              properties:
+                group_name:
+                  type: string
+                  maxLength: 255
+                  description: The name of the group.
+                  example: Engineering Team
+      responses:
+        '201':
+          description: Group created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateGroupResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingGroupName:
+                  summary: Missing group name
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: group_name
+                          message: group_name is a required field
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
   /groups/{group_id}/messages:
     post:
       operationId: sendGroupMessage
@@ -740,3 +794,52 @@ components:
               type: string
               description: Human-readable error message.
               example: You are not a member of this group
+    CreateGroupResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the created group details.
+          required:
+            - group
+          properties:
+            group:
+              type: object
+              required:
+                - id
+                - name
+                - created_by
+                - created_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the created group.
+                  example: 987f6543-a89b-321d-d456-526614174000
+                name:
+                  type: string
+                  description: The name of the group.
+                  example: Engineering Team
+                created_by:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user who created the group.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the group was created.
+                  example: '2026-06-07T16:59:00Z'
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
