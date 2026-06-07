@@ -1,0 +1,363 @@
+openapi: 3.0.3
+info:
+  title: Talk Hub API
+  description: |
+    API documentation for Talk Hub, a real-time chat application.
+    This API handles user authentication, conversation management, membership, and messaging.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+paths:
+  /auth/login:
+    post:
+      operationId: loginUser
+      summary: User Login
+      description: Authenticate a user using their email and password to retrieve an access token.
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: The user's password.
+                  example: SecurePassword123!
+      responses:
+        '200':
+          description: Successfully authenticated. Returns a JWT access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Authentication failed due to incorrect email or password.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /auth/register:
+    post:
+      operationId: registerUser
+      summary: User Registration
+      description: Register a new user with a name, email, password, and password confirmation.
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - password_confirmation
+              properties:
+                name:
+                  type: string
+                  description: The display name of the user.
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  description: The password for the new account.
+                  example: SecurePassword123!
+                password_confirmation:
+                  type: string
+                  format: password
+                  description: The confirmation password, which must match the password field.
+                  example: SecurePassword123!
+      responses:
+        '201':
+          description: Successfully registered. Returns a JWT access token and the registered user's details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure (e.g., password mismatch).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '409':
+          description: Registration failed because the email address is already in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+  /auth/logout:
+    post:
+      operationId: logoutUser
+      summary: User Logout
+      description: Log out the current user and invalidate their active session/token.
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successfully logged out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing response data.
+          required:
+            - token
+          properties:
+            token:
+              type: string
+              description: JWT access token to authenticate subsequent API requests.
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDAiLCJleHAiOjE3Mzk4OTQwMDB9.signature
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    ValidationErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing validation error details.
+          required:
+            - code
+            - message
+            - details
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Broad error explanation.
+              example: The request contains invalid fields
+            details:
+              type: array
+              description: List of specific fields that failed validation.
+              items:
+                type: object
+                required:
+                  - field
+                  - message
+                properties:
+                  field:
+                    type: string
+                    description: The field name that failed validation.
+                    example: email
+                  message:
+                    type: string
+                    description: The validation message.
+                    example: email must be a valid email address
+    UnauthorizedErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing unauthorized error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: UNAUTHORIZED
+            message:
+              type: string
+              description: Human-readable error message.
+              example: Invalid email or password
+    RegisterResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing registration response data.
+          required:
+            - user
+            - token
+          properties:
+            user:
+              type: object
+              required:
+                - id
+                - name
+                - email
+                - created_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the registered user.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                name:
+                  type: string
+                  description: The name of the user.
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user was created.
+                  example: '2026-06-03T22:06:17Z'
+            token:
+              type: string
+              description: JWT access token to authenticate subsequent API requests.
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDAiLCJleHAiOjE3Mzk4OTQwMDB9.signature
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    ConflictErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing conflict error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: CONFLICT
+            message:
+              type: string
+              description: Human-readable error message.
+              example: Email is already registered
+    LogoutResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing response data.
+          required:
+            - message
+          properties:
+            message:
+              type: string
+              description: Success message confirmation.
+              example: Successfully logged out.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
