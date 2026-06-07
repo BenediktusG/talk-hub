@@ -11,10 +11,12 @@ servers:
 paths:
   /auth/login:
     post:
+      operationId: loginUser
       summary: User Login
       description: Authenticate a user using their email and password to retrieve an access token.
       tags:
         - Authentication
+      security: []
       requestBody:
         required: true
         content:
@@ -56,10 +58,12 @@ paths:
                 $ref: '#/components/schemas/UnauthorizedErrorResponse'
   /auth/register:
     post:
+      operationId: registerUser
       summary: User Registration
       description: Register a new user with a name, email, password, and password confirmation.
       tags:
         - Authentication
+      security: []
       requestBody:
         required: true
         content:
@@ -110,6 +114,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConflictErrorResponse'
+  /auth/logout:
+    post:
+      operationId: logoutUser
+      summary: User Logout
+      description: Log out the current user and invalidate their active session/token.
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successfully logged out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
 
 components:
   securitySchemes:
@@ -309,3 +335,29 @@ components:
               type: string
               description: Human-readable error message.
               example: Email is already registered
+    LogoutResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing response data.
+          required:
+            - message
+          properties:
+            message:
+              type: string
+              description: Success message confirmation.
+              example: Successfully logged out.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
