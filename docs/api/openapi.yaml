@@ -317,6 +317,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponse'
+  /groups/{group_id}/messages:
+    post:
+      operationId: sendGroupMessage
+      summary: Send a Group Message
+      description: Send a message to a group conversation. The user must be an active member of the group.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  maxLength: 4000
+                  description: The message content to send (up to 4000 characters).
+                  example: Hello team, let's meet at 2 PM.
+      responses:
+        '201':
+          description: Message sent successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure (e.g., message exceeds 4000 characters).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingMessage:
+                  summary: Missing message
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: message
+                          message: message is a required field
+                messageExceedsLimit:
+                  summary: Message exceeds character limit
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: message
+                          message: message must be at most 4000 characters
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. User is not a member of the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
 
 
 components:
@@ -623,3 +709,34 @@ components:
               type: string
               description: Human-readable error message.
               example: Target user not found
+    ForbiddenErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: FORBIDDEN
+            message:
+              type: string
+              description: Human-readable error message.
+              example: You are not a member of this group
