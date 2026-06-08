@@ -257,6 +257,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /auth/refresh:
+    post:
+      operationId: refreshAccessToken
+      summary: Refresh Access Token
+      description: Get a new JWT access token using the refresh token stored in the HTTP-only cookie.
+      tags:
+        - Authentication
+      security: []
+      responses:
+        '200':
+          description: Successfully refreshed access token. Returns the new JWT access token in the response body.
+          headers:
+            Set-Cookie:
+              description: >
+                Optional. If refresh token rotation is enabled, returns a new secure, HTTP-only refresh token.
+                Format: `refresh_token=<token>; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Unauthorized. The refresh token cookie is missing, expired, or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
   /users/me:
     get:
       operationId: getUserInfo
@@ -1203,6 +1232,32 @@ components:
             token:
               type: string
               description: JWT access token to authenticate subsequent API requests.
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDAiLCJleHAiOjE3Mzk4OTQwMDB9.signature
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    RefreshResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing response data.
+          required:
+            - token
+          properties:
+            token:
+              type: string
+              description: The new JWT access token to authenticate subsequent API requests.
               example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDAiLCJleHAiOjE3Mzk4OTQwMDB9.signature
         error:
           type: object
