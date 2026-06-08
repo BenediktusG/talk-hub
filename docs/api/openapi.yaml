@@ -39,7 +39,15 @@ paths:
                   example: SecurePassword123!
       responses:
         '200':
-          description: Successfully authenticated. Returns a JWT access token.
+          description: Successfully authenticated. Returns a JWT access token in the response body and sets a refresh token in an HTTP-only cookie.
+          headers:
+            Set-Cookie:
+              description: >
+                Contains the secure, HTTP-only refresh token.
+                Format: `refresh_token=<token>; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800
           content:
             application/json:
               schema:
@@ -50,12 +58,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingEmail:
+                  summary: Missing email
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email is a required field
+                invalidEmail:
+                  summary: Invalid email format
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email must be a valid email address
+                missingPassword:
+                  summary: Missing password
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password
+                          message: password is a required field
         '401':
           description: Authentication failed due to incorrect email or password.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+                $ref: '#/components/schemas/InvalidCredentialsErrorResponse'
   /auth/register:
     post:
       operationId: registerUser
@@ -78,7 +120,8 @@ paths:
               properties:
                 name:
                   type: string
-                  description: The display name of the user.
+                  maxLength: 50
+                  description: The display name of the user (up to 50 characters).
                   example: John Doe
                 email:
                   type: string
@@ -108,6 +151,84 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingName:
+                  summary: Missing name
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name is a required field
+                nameExceedsLimit:
+                  summary: Name exceeds character limit
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name must be at most 50 characters
+                missingEmail:
+                  summary: Missing email
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email is a required field
+                invalidEmail:
+                  summary: Invalid email format
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: email
+                          message: email must be a valid email address
+                missingPassword:
+                  summary: Missing password
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password
+                          message: password is a required field
+                missingPasswordConfirmation:
+                  summary: Missing password confirmation
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password_confirmation
+                          message: password_confirmation is a required field
+                passwordMismatch:
+                  summary: Password mismatch
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: password_confirmation
+                          message: password confirmation must match password
         '409':
           description: Registration failed because the email address is already in use.
           content:
@@ -136,6 +257,789 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /auth/refresh:
+    post:
+      operationId: refreshAccessToken
+      summary: Refresh Access Token
+      description: Get a new JWT access token using the refresh token stored in the HTTP-only cookie.
+      tags:
+        - Authentication
+      security: []
+      responses:
+        '200':
+          description: Successfully refreshed access token. Returns the new JWT access token in the response body.
+          headers:
+            Set-Cookie:
+              description: >
+                Optional. If refresh token rotation is enabled, returns a new secure, HTTP-only refresh token.
+                Format: `refresh_token=<token>; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Unauthorized. The refresh token cookie is missing, expired, or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /users/me:
+    get:
+      operationId: getUserInfo
+      summary: Get Current User Info
+      description: Retrieve the profile information of the currently authenticated user.
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User information retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUserInfoResponse'
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+    put:
+      operationId: updateUserInfo
+      summary: Update Current User Info
+      description: Update the display name of the currently authenticated user.
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                  description: The new display name for the user (up to 50 characters).
+                  example: Jane Doe
+      responses:
+        '200':
+          description: User information updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserInfoResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingName:
+                  summary: Missing name
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name is a required field
+                nameExceedsLimit:
+                  summary: Name exceeds character limit
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name must be at most 50 characters
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /direct-messages/{user_id}:
+    get:
+      operationId: viewDirectMessages
+      summary: View Direct Messages
+      description: Retrieve the message history of a direct conversation with another user. Returns a paginated list of messages ordered from newest to oldest. Uses cursor-based pagination. If no conversation exists yet, an empty messages array is returned.
+      tags:
+        - Direct Messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The unique identifier of the other user in the direct conversation.
+          schema:
+            type: string
+            format: uuid
+            example: 123e4567-e89b-123d-a456-426614174000
+        - name: cursor
+          in: query
+          required: false
+          description: The cursor for pagination. Use the `next_cursor` value from a previous response to fetch the next page of messages.
+          schema:
+            type: string
+            format: uuid
+            example: 876e5432-b89e-432d-c456-826614174000
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of messages to return per page. Defaults to 20, maximum is 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Messages retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewDirectMessagesResponse'
+        '400':
+          description: Invalid query parameters or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                invalidLimit:
+                  summary: Invalid limit value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: limit
+                          message: limit must be between 1 and 50
+                invalidCursor:
+                  summary: Invalid cursor value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: cursor
+                          message: cursor must be a valid UUID
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Target user not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                userNotFound:
+                  summary: Target user not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Target user not found
+  /groups:
+    post:
+      operationId: createGroup
+      summary: Create a Group
+      description: Create a new group conversation. The user must be authenticated.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - group_name
+              properties:
+                group_name:
+                  type: string
+                  maxLength: 255
+                  description: The name of the group.
+                  example: Engineering Team
+      responses:
+        '201':
+          description: Group created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateGroupResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingGroupName:
+                  summary: Missing group name
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: group_name
+                          message: group_name is a required field
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /groups/{group_id}/messages:
+    get:
+      operationId: viewGroupMessages
+      summary: View Group Messages
+      description: Retrieve the message history of a group conversation. Returns a paginated list of messages ordered from newest to oldest. Uses cursor-based pagination. The user must be an active member of the group.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+        - name: cursor
+          in: query
+          required: false
+          description: The cursor for pagination. Use the `next_cursor` value from a previous response to fetch the next page of messages.
+          schema:
+            type: string
+            format: uuid
+            example: 876e5432-b89e-432d-c456-826614174000
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of messages to return per page. Defaults to 20, maximum is 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Messages retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewGroupMessagesResponse'
+        '400':
+          description: Invalid query parameters or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                invalidLimit:
+                  summary: Invalid limit value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: limit
+                          message: limit must be between 1 and 50
+                invalidCursor:
+                  summary: Invalid cursor value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: cursor
+                          message: cursor must be a valid UUID
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. User is not a member of the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
+  /groups/{group_id}/members:
+    post:
+      operationId: inviteGroupMembers
+      summary: Invite Members to Group
+      description: Invite other users to join a group. Only the group administrator (admin) is authorized to perform this action.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - users_id
+              properties:
+                users_id:
+                  type: array
+                  description: Array of user IDs (UUID format) to invite to the group.
+                  items:
+                    type: string
+                    format: uuid
+                    example: 123e4567-e89b-123d-a456-426614174000
+      responses:
+        '200':
+          description: Members successfully invited to the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteGroupMembersResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingUsersId:
+                  summary: Missing users_id
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: users_id
+                          message: users_id is a required field
+                invalidUsersId:
+                  summary: Invalid users_id (user does not exist)
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: users_id[0]
+                          message: user does not exist
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. Only the group administrator is authorized to invite users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                notAdmin:
+                  summary: Not the group admin
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: Only the group administrator is authorized to invite users
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
+    delete:
+      operationId: kickGroupMembers
+      summary: Kick Members from Group
+      description: Kick other users from a group. Only the group administrator (admin) is authorized to perform this action.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - users_id
+              properties:
+                users_id:
+                  type: array
+                  description: Array of user IDs (UUID format) to kick from the group.
+                  items:
+                    type: string
+                    format: uuid
+                    example: 123e4567-e89b-123d-a456-426614174000
+      responses:
+        '200':
+          description: Members successfully kicked from the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KickGroupMembersResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingUsersId:
+                  summary: Missing users_id
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: users_id
+                          message: users_id is a required field
+                invalidUsersId:
+                  summary: Invalid users_id (user does not exist)
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: users_id[0]
+                          message: user does not exist
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. Only the group administrator is authorized to kick users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                notAdmin:
+                  summary: Not the group admin
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: Only the group administrator is authorized to kick users
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
+  /groups/{group_id}/members/role:
+    put:
+      operationId: updateGroupMemberRole
+      summary: Promote or Demote Group Member
+      description: Update the role of a group member (promote to admin or demote to member). Only the group administrator (admin) is authorized to perform this action.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - role
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user to promote or demote.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                role:
+                  type: string
+                  description: The new role for the member.
+                  enum:
+                    - admin
+                    - member
+                  example: admin
+      responses:
+        '200':
+          description: Member role updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateGroupMemberRoleResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingUserId:
+                  summary: Missing user_id
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: user_id
+                          message: user_id is a required field
+                invalidUserId:
+                  summary: Invalid user_id (user does not exist)
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: user_id
+                          message: user does not exist
+                missingRole:
+                  summary: Missing role
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: role
+                          message: role is a required field
+                invalidRoleValue:
+                  summary: Invalid role value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: role
+                          message: role must be either admin or member
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. Only the group administrator is authorized to promote or demote users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                notAdmin:
+                  summary: Not the group admin
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: Only the group administrator is authorized to promote or demote users
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
+
+  /groups/{group_id}/members/me:
+    delete:
+      operationId: leaveGroup
+      summary: Leave a Group
+      description: |
+        Allow the currently authenticated user to voluntarily leave a group they are a member of.
+        If the user is the sole administrator of the group, they must first transfer admin rights
+        to another member before leaving. The group itself is not deleted when a member leaves.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the group to leave.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      responses:
+        '200':
+          description: Successfully left the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveGroupResponse'
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: |
+            Action not permitted. This occurs when the authenticated user is not a member of the group,
+            or when the authenticated user is the sole administrator of the group and must transfer
+            admin rights to another member before leaving.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                notMember:
+                  summary: User is not a member of the group
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: You are not a member of this group
+                soleAdmin:
+                  summary: User is the sole administrator
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: You are the sole administrator of this group. Transfer admin rights to another member before leaving.
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
+
 
 components:
   securitySchemes:
@@ -164,6 +1068,32 @@ components:
             token:
               type: string
               description: JWT access token to authenticate subsequent API requests.
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDAiLCJleHAiOjE3Mzk4OTQwMDB9.signature
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    RefreshResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing response data.
+          required:
+            - token
+          properties:
+            token:
+              type: string
+              description: The new JWT access token to authenticate subsequent API requests.
               example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDAiLCJleHAiOjE3Mzk4OTQwMDB9.signature
         error:
           type: object
@@ -238,6 +1168,37 @@ components:
         error:
           type: object
           description: Object containing unauthorized error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: UNAUTHORIZED
+            message:
+              type: string
+              description: Human-readable error message.
+              example: Missing or invalid access token
+    InvalidCredentialsErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing authentication error details.
           required:
             - code
             - message
@@ -356,6 +1317,534 @@ components:
               type: string
               description: Success message confirmation.
               example: Successfully logged out.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    GetUserInfoResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the user's profile information.
+          required:
+            - user
+          properties:
+            user:
+              type: object
+              required:
+                - id
+                - name
+                - email
+                - created_at
+                - updated_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                name:
+                  type: string
+                  description: The display name of the user.
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was created.
+                  example: '2026-06-03T22:06:17Z'
+                updated_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was last updated.
+                  example: '2026-06-07T10:15:00Z'
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    UpdateUserInfoResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the updated user profile information.
+          required:
+            - user
+            - message
+          properties:
+            user:
+              type: object
+              required:
+                - id
+                - name
+                - email
+                - created_at
+                - updated_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                name:
+                  type: string
+                  description: The updated display name of the user.
+                  example: Jane Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was created.
+                  example: '2026-06-03T22:06:17Z'
+                updated_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was last updated.
+                  example: '2026-06-08T09:00:00Z'
+            message:
+              type: string
+              description: Confirmation message.
+              example: User information updated successfully.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    ViewDirectMessagesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the list of messages and pagination metadata.
+          required:
+            - messages
+            - pagination
+          properties:
+            messages:
+              type: array
+              description: Array of message objects, ordered from newest to oldest.
+              items:
+                type: object
+                required:
+                  - id
+                  - user_id
+                  - message
+                  - created_at
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the message.
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  user_id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the user who sent the message.
+                    example: 123e4567-e89b-123d-a456-426614174000
+                  message:
+                    type: string
+                    description: The content of the message.
+                    example: Hello, how are you?
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: The timestamp when the message was sent.
+                    example: '2026-06-07T11:30:00Z'
+            pagination:
+              type: object
+              description: Pagination metadata for cursor-based navigation.
+              required:
+                - next_cursor
+                - has_more
+              properties:
+                next_cursor:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: The cursor to use for fetching the next page of results. Null if there are no more pages.
+                  example: 456e7890-b89e-432d-c456-926614174000
+                has_more:
+                  type: boolean
+                  description: Whether more messages are available beyond the current page.
+                  example: true
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    ViewGroupMessagesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the list of messages and pagination metadata.
+          required:
+            - messages
+            - pagination
+          properties:
+            messages:
+              type: array
+              description: Array of message objects, ordered from newest to oldest.
+              items:
+                type: object
+                required:
+                  - id
+                  - user_id
+                  - sender_name
+                  - message
+                  - created_at
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the message.
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  user_id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the user who sent the message.
+                    example: 123e4567-e89b-123d-a456-426614174000
+                  sender_name:
+                    type: string
+                    description: The display name of the user who sent the message.
+                    example: John Doe
+                  message:
+                    type: string
+                    description: The content of the message.
+                    example: Hello team, let's meet at 2 PM.
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: The timestamp when the message was sent.
+                    example: '2026-06-07T11:30:00Z'
+            pagination:
+              type: object
+              description: Pagination metadata for cursor-based navigation.
+              required:
+                - next_cursor
+                - has_more
+              properties:
+                next_cursor:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: The cursor to use for fetching the next page of results. Null if there are no more pages.
+                  example: 456e7890-b89e-432d-c456-926614174000
+                has_more:
+                  type: boolean
+                  description: Whether more messages are available beyond the current page.
+                  example: true
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    NotFoundErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: NOT_FOUND
+            message:
+              type: string
+              description: Human-readable error message.
+              example: Target user not found
+    ForbiddenErrorResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: false
+        data:
+          type: object
+          nullable: true
+          description: Always null for error responses.
+          example: null
+        error:
+          type: object
+          description: Object containing error details.
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code.
+              example: FORBIDDEN
+            message:
+              type: string
+              description: Human-readable error message.
+              example: You are not a member of this group
+    CreateGroupResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the created group details.
+          required:
+            - group
+          properties:
+            group:
+              type: object
+              required:
+                - id
+                - name
+                - created_by
+                - created_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the created group.
+                  example: 987f6543-a89b-321d-d456-526614174000
+                name:
+                  type: string
+                  description: The name of the group.
+                  example: Engineering Team
+                created_by:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user who created the group.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the group was created.
+                  example: '2026-06-07T16:59:00Z'
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    InviteGroupMembersResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing details of the invitation results.
+          required:
+            - invited
+            - failed
+          properties:
+            invited:
+              type: array
+              description: Array of user IDs successfully invited/added to the group.
+              items:
+                type: string
+                format: uuid
+                example: 123e4567-e89b-123d-a456-426614174000
+            failed:
+              type: array
+              description: Array of users that could not be invited.
+              items:
+                type: object
+                required:
+                  - user_id
+                  - reason
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  reason:
+                    type: string
+                    description: The reason why the user could not be invited.
+                    example: ALREADY_MEMBER
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    KickGroupMembersResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing details of the kick results.
+          required:
+            - kicked
+            - failed
+          properties:
+            kicked:
+              type: array
+              description: Array of user IDs successfully kicked/removed from the group.
+              items:
+                type: string
+                format: uuid
+                example: 123e4567-e89b-123d-a456-426614174000
+            failed:
+              type: array
+              description: Array of users that could not be kicked.
+              items:
+                type: object
+                required:
+                  - user_id
+                  - reason
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  reason:
+                    type: string
+                    description: The reason why the user could not be kicked.
+                    example: NOT_A_MEMBER
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    UpdateGroupMemberRoleResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing details of the updated member role.
+          required:
+            - user_id
+            - role
+            - message
+          properties:
+            user_id:
+              type: string
+              format: uuid
+              description: The unique identifier of the user whose role was updated.
+              example: 123e4567-e89b-123d-a456-426614174000
+            role:
+              type: string
+              description: The new role assigned to the user.
+              example: admin
+            message:
+              type: string
+              description: Confirmation message.
+              example: User role updated successfully.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    LeaveGroupResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing confirmation of the leave action.
+          required:
+            - message
+          properties:
+            message:
+              type: string
+              description: Confirmation message indicating the user has left the group.
+              example: You have successfully left the group.
         error:
           type: object
           nullable: true
