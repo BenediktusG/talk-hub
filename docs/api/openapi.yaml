@@ -238,6 +238,98 @@ paths:
               schema:
                 $ref: '#/components/schemas/UnauthorizedErrorResponse'
   /direct-messages/{user_id}:
+    get:
+      operationId: viewDirectMessages
+      summary: View Direct Messages
+      description: Retrieve the message history of a direct conversation with another user. Returns a paginated list of messages ordered from newest to oldest. Uses cursor-based pagination. If no conversation exists yet, an empty messages array is returned.
+      tags:
+        - Direct Messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The unique identifier of the other user in the direct conversation.
+          schema:
+            type: string
+            format: uuid
+            example: 123e4567-e89b-123d-a456-426614174000
+        - name: cursor
+          in: query
+          required: false
+          description: The cursor for pagination. Use the `next_cursor` value from a previous response to fetch the next page of messages.
+          schema:
+            type: string
+            format: uuid
+            example: 876e5432-b89e-432d-c456-826614174000
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of messages to return per page. Defaults to 20, maximum is 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Messages retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewDirectMessagesResponse'
+        '400':
+          description: Invalid query parameters or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                invalidLimit:
+                  summary: Invalid limit value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: limit
+                          message: limit must be between 1 and 50
+                invalidCursor:
+                  summary: Invalid cursor value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: cursor
+                          message: cursor must be a valid UUID
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '404':
+          description: Target user not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                userNotFound:
+                  summary: Target user not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Target user not found
     post:
       operationId: sendDirectMessage
       summary: Send a Direct Message
@@ -1103,6 +1195,76 @@ components:
                   format: date-time
                   description: The timestamp when the message was sent.
                   example: '2026-06-07T11:30:00Z'
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    ViewDirectMessagesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the list of messages and pagination metadata.
+          required:
+            - messages
+            - pagination
+          properties:
+            messages:
+              type: array
+              description: Array of message objects, ordered from newest to oldest.
+              items:
+                type: object
+                required:
+                  - id
+                  - user_id
+                  - message
+                  - created_at
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the message.
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  user_id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the user who sent the message.
+                    example: 123e4567-e89b-123d-a456-426614174000
+                  message:
+                    type: string
+                    description: The content of the message.
+                    example: Hello, how are you?
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: The timestamp when the message was sent.
+                    example: '2026-06-07T11:30:00Z'
+            pagination:
+              type: object
+              description: Pagination metadata for cursor-based navigation.
+              required:
+                - next_cursor
+                - has_more
+              properties:
+                next_cursor:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: The cursor to use for fetching the next page of results. Null if there are no more pages.
+                  example: 456e7890-b89e-432d-c456-926614174000
+                has_more:
+                  type: boolean
+                  description: Whether more messages are available beyond the current page.
+                  example: true
         error:
           type: object
           nullable: true
