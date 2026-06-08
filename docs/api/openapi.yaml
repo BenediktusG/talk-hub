@@ -516,6 +516,17 @@ paths:
                       details:
                         - field: users_id
                           message: users_id is a required field
+                invalidUsersId:
+                  summary: Invalid users_id (user does not exist)
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: users_id[0]
+                          message: user does not exist
         '401':
           description: Authentication failed or token missing/invalid.
           content:
@@ -543,6 +554,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
     delete:
       operationId: kickGroupMembers
       summary: Kick Members from Group
@@ -601,6 +621,17 @@ paths:
                       details:
                         - field: users_id
                           message: users_id is a required field
+                invalidUsersId:
+                  summary: Invalid users_id (user does not exist)
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: users_id[0]
+                          message: user does not exist
         '401':
           description: Authentication failed or token missing/invalid.
           content:
@@ -628,6 +659,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
+  /groups/{group_id}/members/role:
+    put:
+      operationId: updateGroupMemberRole
+      summary: Promote or Demote Group Member
+      description: Update the role of a group member (promote to admin or demote to member). Only the group administrator (admin) is authorized to perform this action.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - role
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user to promote or demote.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                role:
+                  type: string
+                  description: The new role for the member.
+                  enum:
+                    - admin
+                    - member
+                  example: admin
+      responses:
+        '200':
+          description: Member role updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateGroupMemberRoleResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingUserId:
+                  summary: Missing user_id
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: user_id
+                          message: user_id is a required field
+                invalidUserId:
+                  summary: Invalid user_id (user does not exist)
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: user_id
+                          message: user does not exist
+                missingRole:
+                  summary: Missing role
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: role
+                          message: role is a required field
+                invalidRoleValue:
+                  summary: Invalid role value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: role
+                          message: role must be either admin or member
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. Only the group administrator is authorized to promote or demote users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                notAdmin:
+                  summary: Not the group admin
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: Only the group administrator is authorized to promote or demote users
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
 
 
 components:
@@ -1134,6 +1308,43 @@ components:
                     type: string
                     description: The reason why the user could not be kicked.
                     example: NOT_A_MEMBER
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    UpdateGroupMemberRoleResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing details of the updated member role.
+          required:
+            - user_id
+            - role
+            - message
+          properties:
+            user_id:
+              type: string
+              format: uuid
+              description: The unique identifier of the user whose role was updated.
+              example: 123e4567-e89b-123d-a456-426614174000
+            role:
+              type: string
+              description: The new role assigned to the user.
+              example: admin
+            message:
+              type: string
+              description: Confirmation message.
+              example: User role updated successfully.
         error:
           type: object
           nullable: true
