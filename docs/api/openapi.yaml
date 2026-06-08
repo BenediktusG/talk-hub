@@ -464,6 +464,104 @@ paths:
               schema:
                 $ref: '#/components/schemas/UnauthorizedErrorResponse'
   /groups/{group_id}/messages:
+    get:
+      operationId: viewGroupMessages
+      summary: View Group Messages
+      description: Retrieve the message history of a group conversation. Returns a paginated list of messages ordered from newest to oldest. Uses cursor-based pagination. The user must be an active member of the group.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+        - name: cursor
+          in: query
+          required: false
+          description: The cursor for pagination. Use the `next_cursor` value from a previous response to fetch the next page of messages.
+          schema:
+            type: string
+            format: uuid
+            example: 876e5432-b89e-432d-c456-826614174000
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of messages to return per page. Defaults to 20, maximum is 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+            example: 20
+      responses:
+        '200':
+          description: Messages retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewGroupMessagesResponse'
+        '400':
+          description: Invalid query parameters or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                invalidLimit:
+                  summary: Invalid limit value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: limit
+                          message: limit must be between 1 and 50
+                invalidCursor:
+                  summary: Invalid cursor value
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: cursor
+                          message: cursor must be a valid UUID
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. User is not a member of the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
     post:
       operationId: sendGroupMessage
       summary: Send a Group Message
@@ -1243,6 +1341,81 @@ components:
                     type: string
                     description: The content of the message.
                     example: Hello, how are you?
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: The timestamp when the message was sent.
+                    example: '2026-06-07T11:30:00Z'
+            pagination:
+              type: object
+              description: Pagination metadata for cursor-based navigation.
+              required:
+                - next_cursor
+                - has_more
+              properties:
+                next_cursor:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: The cursor to use for fetching the next page of results. Null if there are no more pages.
+                  example: 456e7890-b89e-432d-c456-926614174000
+                has_more:
+                  type: boolean
+                  description: Whether more messages are available beyond the current page.
+                  example: true
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    ViewGroupMessagesResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the list of messages and pagination metadata.
+          required:
+            - messages
+            - pagination
+          properties:
+            messages:
+              type: array
+              description: Array of message objects, ordered from newest to oldest.
+              items:
+                type: object
+                required:
+                  - id
+                  - user_id
+                  - sender_name
+                  - message
+                  - created_at
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the message.
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  user_id:
+                    type: string
+                    format: uuid
+                    description: The unique identifier of the user who sent the message.
+                    example: 123e4567-e89b-123d-a456-426614174000
+                  sender_name:
+                    type: string
+                    description: The display name of the user who sent the message.
+                    example: John Doe
+                  message:
+                    type: string
+                    description: The content of the message.
+                    example: Hello team, let's meet at 2 PM.
                   created_at:
                     type: string
                     format: date-time
