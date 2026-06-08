@@ -543,6 +543,91 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponse'
+    delete:
+      operationId: kickGroupMembers
+      summary: Kick Members from Group
+      description: Kick other users from a group. Only the group administrator (admin) is authorized to perform this action.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the target group.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - users_id
+              properties:
+                users_id:
+                  type: array
+                  description: Array of user IDs (UUID format) to kick from the group.
+                  items:
+                    type: string
+                    format: uuid
+                    example: 123e4567-e89b-123d-a456-426614174000
+      responses:
+        '200':
+          description: Members successfully kicked from the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KickGroupMembersResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingUsersId:
+                  summary: Missing users_id
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: users_id
+                          message: users_id is a required field
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: Access forbidden. Only the group administrator is authorized to kick users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                notAdmin:
+                  summary: Not the group admin
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: Only the group administrator is authorized to kick users
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
 
 
 components:
@@ -981,6 +1066,32 @@ components:
               type: string
               description: Confirmation message.
               example: Users successfully invited to the group.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    KickGroupMembersResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the kick confirmation message.
+          required:
+            - message
+          properties:
+            message:
+              type: string
+              description: Confirmation message.
+              example: Users successfully kicked from the group.
         error:
           type: object
           nullable: true
