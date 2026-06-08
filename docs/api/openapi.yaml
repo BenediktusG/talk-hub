@@ -39,7 +39,15 @@ paths:
                   example: SecurePassword123!
       responses:
         '200':
-          description: Successfully authenticated. Returns a JWT access token.
+          description: Successfully authenticated. Returns a JWT access token in the response body and sets a refresh token in an HTTP-only cookie.
+          headers:
+            Set-Cookie:
+              description: >
+                Contains the secure, HTTP-only refresh token.
+                Format: `refresh_token=<token>; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict; Max-Age=604800
           content:
             application/json:
               schema:
