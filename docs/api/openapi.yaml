@@ -112,7 +112,8 @@ paths:
               properties:
                 name:
                   type: string
-                  description: The display name of the user.
+                  maxLength: 50
+                  description: The display name of the user (up to 50 characters).
                   example: John Doe
                 email:
                   type: string
@@ -154,6 +155,17 @@ paths:
                       details:
                         - field: name
                           message: name is a required field
+                nameExceedsLimit:
+                  summary: Name exceeds character limit
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name must be at most 50 characters
                 missingEmail:
                   summary: Missing email
                   value:
@@ -231,6 +243,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+  /users/me:
+    get:
+      operationId: getUserInfo
+      summary: Get Current User Info
+      description: Retrieve the profile information of the currently authenticated user.
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User information retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUserInfoResponse'
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+    put:
+      operationId: updateUserInfo
+      summary: Update Current User Info
+      description: Update the display name of the currently authenticated user.
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                  description: The new display name for the user (up to 50 characters).
+                  example: Jane Doe
+      responses:
+        '200':
+          description: User information updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserInfoResponse'
+        '400':
+          description: Invalid request body, missing fields, or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                missingName:
+                  summary: Missing name
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name is a required field
+                nameExceedsLimit:
+                  summary: Name exceeds character limit
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: VALIDATION_ERROR
+                      message: The request contains invalid fields
+                      details:
+                        - field: name
+                          message: name must be at most 50 characters
         '401':
           description: Authentication failed or token missing/invalid.
           content:
@@ -1244,6 +1342,121 @@ components:
               type: string
               description: Success message confirmation.
               example: Successfully logged out.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    GetUserInfoResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the user's profile information.
+          required:
+            - user
+          properties:
+            user:
+              type: object
+              required:
+                - id
+                - name
+                - email
+                - created_at
+                - updated_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                name:
+                  type: string
+                  description: The display name of the user.
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was created.
+                  example: '2026-06-03T22:06:17Z'
+                updated_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was last updated.
+                  example: '2026-06-07T10:15:00Z'
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
+    UpdateUserInfoResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing the updated user profile information.
+          required:
+            - user
+            - message
+          properties:
+            user:
+              type: object
+              required:
+                - id
+                - name
+                - email
+                - created_at
+                - updated_at
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: The unique identifier of the user.
+                  example: 123e4567-e89b-123d-a456-426614174000
+                name:
+                  type: string
+                  description: The updated display name of the user.
+                  example: Jane Doe
+                email:
+                  type: string
+                  format: email
+                  description: The email address of the user.
+                  example: user@example.com
+                created_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was created.
+                  example: '2026-06-03T22:06:17Z'
+                updated_at:
+                  type: string
+                  format: date-time
+                  description: The timestamp when the user account was last updated.
+                  example: '2026-06-08T09:00:00Z'
+            message:
+              type: string
+              description: Confirmation message.
+              example: User information updated successfully.
         error:
           type: object
           nullable: true
