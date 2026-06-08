@@ -1091,6 +1091,82 @@ paths:
                       code: NOT_FOUND
                       message: Group not found
 
+  /groups/{group_id}/members/me:
+    delete:
+      operationId: leaveGroup
+      summary: Leave a Group
+      description: |
+        Allow the currently authenticated user to voluntarily leave a group they are a member of.
+        If the user is the sole administrator of the group, they must first transfer admin rights
+        to another member before leaving. The group itself is not deleted when a member leaves.
+      tags:
+        - Groups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: The unique identifier of the group to leave.
+          schema:
+            type: string
+            format: uuid
+            example: 987f6543-a89b-321d-d456-526614174000
+      responses:
+        '200':
+          description: Successfully left the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveGroupResponse'
+        '401':
+          description: Authentication failed or token missing/invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+        '403':
+          description: |
+            Action not permitted. This occurs when the authenticated user is not a member of the group,
+            or when the authenticated user is the sole administrator of the group and must transfer
+            admin rights to another member before leaving.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                notMember:
+                  summary: User is not a member of the group
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: You are not a member of this group
+                soleAdmin:
+                  summary: User is the sole administrator
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: FORBIDDEN
+                      message: You are the sole administrator of this group. Transfer admin rights to another member before leaving.
+        '404':
+          description: Group not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                groupNotFound:
+                  summary: Group not found
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: NOT_FOUND
+                      message: Group not found
+
 
 components:
   securitySchemes:
@@ -1898,4 +1974,29 @@ components:
           nullable: true
           description: Always null for successful responses.
           example: null
-
+    LeaveGroupResponse:
+      type: object
+      required:
+        - success
+        - data
+        - error
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful.
+          example: true
+        data:
+          type: object
+          description: The payload containing confirmation of the leave action.
+          required:
+            - message
+          properties:
+            message:
+              type: string
+              description: Confirmation message indicating the user has left the group.
+              example: You have successfully left the group.
+        error:
+          type: object
+          nullable: true
+          description: Always null for successful responses.
+          example: null
