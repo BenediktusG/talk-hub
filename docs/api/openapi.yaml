@@ -1058,14 +1058,35 @@ components:
           example: true
         data:
           type: object
-          description: The payload containing the invite confirmation message.
+          description: The payload containing details of the invitation results.
           required:
-            - message
+            - invited
+            - failed
           properties:
-            message:
-              type: string
-              description: Confirmation message.
-              example: Users successfully invited to the group.
+            invited:
+              type: array
+              description: Array of user IDs successfully invited/added to the group.
+              items:
+                type: string
+                format: uuid
+                example: 123e4567-e89b-123d-a456-426614174000
+            failed:
+              type: array
+              description: Array of users that could not be invited.
+              items:
+                type: object
+                required:
+                  - user_id
+                  - reason
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  reason:
+                    type: string
+                    description: The reason why the user could not be invited.
+                    example: ALREADY_MEMBER
         error:
           type: object
           nullable: true
@@ -1084,14 +1105,35 @@ components:
           example: true
         data:
           type: object
-          description: The payload containing the kick confirmation message.
+          description: The payload containing details of the kick results.
           required:
-            - message
+            - kicked
+            - failed
           properties:
-            message:
-              type: string
-              description: Confirmation message.
-              example: Users successfully kicked from the group.
+            kicked:
+              type: array
+              description: Array of user IDs successfully kicked/removed from the group.
+              items:
+                type: string
+                format: uuid
+                example: 123e4567-e89b-123d-a456-426614174000
+            failed:
+              type: array
+              description: Array of users that could not be kicked.
+              items:
+                type: object
+                required:
+                  - user_id
+                  - reason
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                    example: 876e5432-b89e-432d-c456-826614174000
+                  reason:
+                    type: string
+                    description: The reason why the user could not be kicked.
+                    example: NOT_A_MEMBER
         error:
           type: object
           nullable: true
